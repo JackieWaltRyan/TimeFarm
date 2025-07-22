@@ -81,7 +81,9 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
     }
 
     public Task OnBotFarmingFinished(Bot bot, bool farmedSomething) {
-        TimeFarmTimers[bot.BotName]["GamesPlayedWhileIdle"].Change(1, -1);
+        if (TimeFarmTimers.TryGetValue(bot.BotName, out Dictionary<string, Timer>? dict)) {
+            dict["GamesPlayedWhileIdle"].Change(1, -1);
+        }
 
         return Task.CompletedTask;
     }
