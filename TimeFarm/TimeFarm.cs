@@ -25,10 +25,10 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
             if (TimeFarmTimers.TryGetValue(bot.BotName, out Dictionary<string, Timer>? dict)) {
                 foreach (KeyValuePair<string, Timer> timers in dict) {
                     switch (timers.Key) {
-                        case "ResetGamesPlayed": {
+                        case "GamesPlayedWhileIdle": {
                             await timers.Value.DisposeAsync().ConfigureAwait(false);
 
-                            bot.ArchiLogger.LogGenericInfo("ResetGamesPlayed Dispose.");
+                            bot.ArchiLogger.LogGenericInfo("GamesPlayedWhileIdle Dispose.");
 
                             break;
                         }
@@ -37,7 +37,7 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
             }
 
             TimeFarmTimers[bot.BotName] = new Dictionary<string, Timer> {
-                { "ResetGamesPlayed", new Timer(async e => await ResetGamesPlayed(bot).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite) }
+                { "GamesPlayedWhileIdle", new Timer(async e => await GamesPlayedWhileIdle(bot).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite) }
             };
 
             TimeFarmConfig[bot.BotName] = new TimeFarmConfig();
@@ -68,10 +68,10 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
         if (TimeFarmTimers.TryGetValue(bot.BotName, out Dictionary<string, Timer>? dict)) {
             foreach (KeyValuePair<string, Timer> timers in dict) {
                 switch (timers.Key) {
-                    case "ResetGamesPlayed": {
+                    case "GamesPlayedWhileIdle": {
                         await timers.Value.DisposeAsync().ConfigureAwait(false);
 
-                        bot.ArchiLogger.LogGenericInfo("ResetGamesPlayed Dispose.");
+                        bot.ArchiLogger.LogGenericInfo("GamesPlayedWhileIdle Dispose.");
 
                         break;
                     }
@@ -81,12 +81,12 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
     }
 
     public Task OnBotFarmingFinished(Bot bot, bool farmedSomething) {
-        TimeFarmTimers[bot.BotName]["ResetGamesPlayed"].Change(1, -1);
+        TimeFarmTimers[bot.BotName]["GamesPlayedWhileIdle"].Change(1, -1);
 
         return Task.CompletedTask;
     }
 
-    public async Task ResetGamesPlayed(Bot bot) {
+    public async Task GamesPlayedWhileIdle(Bot bot) {
         uint timeout = 1;
 
         if (bot.IsConnectedAndLoggedOn) {
@@ -157,6 +157,6 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
             bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Next run: {DateTime.Now.AddMinutes(timeout):T}");
         }
 
-        TimeFarmTimers[bot.BotName]["ResetGamesPlayed"].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
+        TimeFarmTimers[bot.BotName]["GamesPlayedWhileIdle"].Change(TimeSpan.FromMinutes(timeout), TimeSpan.FromMilliseconds(-1));
     }
 }
