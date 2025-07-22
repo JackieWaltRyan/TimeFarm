@@ -80,7 +80,11 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
         }
     }
 
-    public async Task OnBotFarmingFinished(Bot bot, bool farmedSomething) => await ResetGamesPlayed(bot).ConfigureAwait(false);
+    public Task OnBotFarmingFinished(Bot bot, bool farmedSomething) {
+        TimeFarmTimers[bot.BotName]["ResetGamesPlayed"].Change(1, -1);
+
+        return Task.CompletedTask;
+    }
 
     public async Task ResetGamesPlayed(Bot bot) {
         uint timeout = 1;
