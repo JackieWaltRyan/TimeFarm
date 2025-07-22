@@ -67,15 +67,9 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
     public async Task OnBotFarmingStarted(Bot bot) {
         if (TimeFarmTimers.TryGetValue(bot.BotName, out Dictionary<string, Timer>? dict)) {
             foreach (KeyValuePair<string, Timer> timers in dict) {
-                switch (timers.Key) {
-                    case "GamesPlayedWhileIdle": {
-                        await timers.Value.DisposeAsync().ConfigureAwait(false);
+                await timers.Value.DisposeAsync().ConfigureAwait(false);
 
-                        bot.ArchiLogger.LogGenericInfo("GamesPlayedWhileIdle Dispose.");
-
-                        break;
-                    }
-                }
+                bot.ArchiLogger.LogGenericInfo($"{timers.Key} Dispose.");
             }
         }
     }
