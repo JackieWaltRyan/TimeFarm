@@ -30,6 +30,10 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
                 }
             }
 
+            TimeFarmTimers[bot.BotName] = new Dictionary<string, Timer> {
+                { "PlayedGamesWhileIdle", new Timer(async e => await PlayedGamesWhileIdle(bot).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite) }
+            };
+
             TimeFarmConfig[bot.BotName] = new TimeFarmConfig();
 
             foreach (KeyValuePair<string, JsonElement> configProperty in additionalConfigProperties) {
@@ -65,9 +69,13 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
     }
 
     public Task OnBotFarmingFinished(Bot bot, bool farmedSomething) {
-        TimeFarmTimers[bot.BotName] = new Dictionary<string, Timer> {
-            { "PlayedGamesWhileIdle", new Timer(async e => await PlayedGamesWhileIdle(bot).ConfigureAwait(false), null, 1, -1) }
-        };
+        if (!TimeFarmConfig.TryGetValue(bot.BotName, out TimeFarmConfig? value) || !value.Enable) {
+            return Task.CompletedTask;
+        }
+
+        if (TimeFarmTimers.TryGetValue(bot.BotName, out Dictionary<string, Timer>? dict)) {
+            dict["PlayedGamesWhileIdle"].Change(1, -1);
+        }
 
         return Task.CompletedTask;
     }
@@ -87,28 +95,30 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
                     if (games.Count > 0) {
                         List<uint> gamesIDs = [];
 
-                        if (TimeFarmConfig[bot.BotName].Whitelist.Count > 0) {
-                            bot.ArchiLogger.LogGenericInfo($"Whitelist: {TimeFarmConfig[bot.BotName].Whitelist.ToJsonText()}");
+                        TimeFarmConfig tfc = TimeFarmConfig[bot.BotName];
+
+                        if (tfc.Whitelist.Count > 0) {
+                            bot.ArchiLogger.LogGenericInfo($"Whitelist: {tfc.Whitelist.ToJsonText()}");
                         }
 
-                        if (TimeFarmConfig[bot.BotName].Blacklist.Count > 0) {
-                            bot.ArchiLogger.LogGenericInfo($"Blacklist: {TimeFarmConfig[bot.BotName].Blacklist.ToJsonText()}");
+                        if (tfc.Blacklist.Count > 0) {
+                            bot.ArchiLogger.LogGenericInfo($"Blacklist: {tfc.Blacklist.ToJsonText()}");
                         }
 
                         foreach (GetOwnedGamesResponse.ResponseData.Game game in games) {
-                            if (TimeFarmConfig[bot.BotName].Whitelist.Contains(game.AppId)) {
+                            if (tfc.Whitelist.Contains(game.AppId)) {
                                 gamesIDs.Add(game.AppId);
                             }
                         }
 
                         foreach (GetOwnedGamesResponse.ResponseData.Game game in games) {
-                            if (!gamesIDs.Contains(game.AppId) && (game.PlayTimeForever < TimeFarmConfig[bot.BotName].Time * 60) && !TimeFarmConfig[bot.BotName].Blacklist.Contains(game.AppId)) {
+                            if (!gamesIDs.Contains(game.AppId) && (game.PlayTimeForever < tfc.Time * 60) && !tfc.Blacklist.Contains(game.AppId)) {
                                 gamesIDs.Add(game.AppId);
                             }
                         }
 
                         if (gamesIDs.Count > 0) {
-                            bot.ArchiLogger.LogGenericInfo($"Found games less {TimeFarmConfig[bot.BotName].Time} hours: {gamesIDs.Count}");
+                            bot.ArchiLogger.LogGenericInfo($"Found games less {tfc.Time} hours: {gamesIDs.Count}");
 
                             List<uint> filterIDs = gamesIDs.Count <= 32 ? gamesIDs : gamesIDs.GetRange(0, 32);
 
@@ -116,7 +126,7 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
 
                             bot.ArchiLogger.LogGenericInfo($"Status: Playing {filterIDs.Count} selected games: {filterIDs.ToJsonText()} | Next check: {DateTime.Now.AddMinutes(timeout):T}");
                         } else {
-                            bot.ArchiLogger.LogGenericInfo($"Status: NotFoundGamesLess{TimeFarmConfig[bot.BotName].Time}Hours");
+                            bot.ArchiLogger.LogGenericInfo($"Status: NotFoundGamesLess{tfc.Time}Hours");
 
                             return;
                         }
