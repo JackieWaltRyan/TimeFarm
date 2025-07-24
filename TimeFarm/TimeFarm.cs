@@ -30,10 +30,6 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
                 }
             }
 
-            TimeFarmTimers[bot.BotName] = new Dictionary<string, Timer> {
-                { "PlayedGamesWhileIdle", new Timer(async e => await PlayedGamesWhileIdle(bot).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite) }
-            };
-
             TimeFarmConfig[bot.BotName] = new TimeFarmConfig();
 
             foreach (KeyValuePair<string, JsonElement> configProperty in additionalConfigProperties) {
@@ -73,9 +69,9 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
             return Task.CompletedTask;
         }
 
-        if (TimeFarmTimers.TryGetValue(bot.BotName, out Dictionary<string, Timer>? dict)) {
-            dict["PlayedGamesWhileIdle"].Change(1, -1);
-        }
+        TimeFarmTimers[bot.BotName] = new Dictionary<string, Timer> {
+            { "PlayedGamesWhileIdle", new Timer(async e => await PlayedGamesWhileIdle(bot).ConfigureAwait(false), null, 1, -1) }
+        };
 
         return Task.CompletedTask;
     }
