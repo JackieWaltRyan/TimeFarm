@@ -30,6 +30,10 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
                 }
             }
 
+            TimeFarmTimers[bot.BotName] = new Dictionary<string, Timer> {
+                { "PlayedGamesWhileIdle", new Timer(async e => await PlayedGamesWhileIdle(bot).ConfigureAwait(false), null, Timeout.Infinite, Timeout.Infinite) }
+            };
+
             TimeFarmConfig[bot.BotName] = new TimeFarmConfig();
 
             foreach (KeyValuePair<string, JsonElement> configProperty in additionalConfigProperties) {
@@ -69,76 +73,72 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
             return Task.CompletedTask;
         }
 
-        TimeFarmTimers[bot.BotName] = new Dictionary<string, Timer> {
-            { "PlayedGamesWhileIdle", new Timer(async e => await PlayedGamesWhileIdle(bot).ConfigureAwait(false), null, 1, -1) }
-        };
+        if (TimeFarmTimers.TryGetValue(bot.BotName, out Dictionary<string, Timer>? dict)) {
+            dict["PlayedGamesWhileIdle"].Change(1, -1);
+        }
 
         return Task.CompletedTask;
     }
 
     public async Task PlayedGamesWhileIdle(Bot bot) {
-        uint timeout = 1;
+        const uint timeout = 1;
 
         if (bot.IsConnectedAndLoggedOn) {
-            if (!bot.CardsFarmer.NowFarming && bot.IsPlayingPossible) {
-                ObjectResponse<GetOwnedGamesResponse>? rawResponse = await bot.ArchiWebHandler.UrlGetToJsonObjectWithSession<GetOwnedGamesResponse>(new Uri($"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?access_token={bot.AccessToken}&steamid={bot.SteamID}&include_played_free_games=true&include_free_sub=true&skip_unvetted_apps=false")).ConfigureAwait(false);
+            // if (!bot.CardsFarmer.NowFarming && bot.IsPlayingPossible) {
+            ObjectResponse<GetOwnedGamesResponse>? rawResponse = await bot.ArchiWebHandler.UrlGetToJsonObjectWithSession<GetOwnedGamesResponse>(new Uri($"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?access_token={bot.AccessToken}&steamid={bot.SteamID}&include_played_free_games=true&include_free_sub=true&skip_unvetted_apps=false")).ConfigureAwait(false);
 
-                List<GetOwnedGamesResponse.ResponseData.Game>? games = rawResponse?.Content?.Response?.Games;
+            List<GetOwnedGamesResponse.ResponseData.Game>? games = rawResponse?.Content?.Response?.Games;
 
-                if (games != null) {
-                    bot.ArchiLogger.LogGenericInfo($"Total games found: {games.Count}");
+            // if (games.Count > 0) {
+            //     List<uint> gamesIDs = [];
+            //
+            //     TimeFarmConfig tfc = TimeFarmConfig[bot.BotName];
+            //
+            //     if (tfc.Whitelist.Count > 0) {
+            //         bot.ArchiLogger.LogGenericInfo($"Whitelist: {tfc.Whitelist.ToJsonText()}");
+            //     }
+            //
+            //     if (tfc.Blacklist.Count > 0) {
+            //         bot.ArchiLogger.LogGenericInfo($"Blacklist: {tfc.Blacklist.ToJsonText()}");
+            //     }
+            //
+            //     foreach (GetOwnedGamesResponse.ResponseData.Game game in games) {
+            //         if (tfc.Whitelist.Contains(game.AppId)) {
+            //             gamesIDs.Add(game.AppId);
+            //         }
+            //     }
+            //
+            //     foreach (GetOwnedGamesResponse.ResponseData.Game game in games) {
+            //         if (!gamesIDs.Contains(game.AppId) && (game.PlayTimeForever < tfc.Time * 60) && !tfc.Blacklist.Contains(game.AppId)) {
+            //             gamesIDs.Add(game.AppId);
+            //         }
+            //     }
+            //
+            //     if (gamesIDs.Count > 0) {
+            //         bot.ArchiLogger.LogGenericInfo($"Found games less {tfc.Time} hours: {gamesIDs.Count}");
+            //
+            //         List<uint> filterIDs = gamesIDs.Count <= 32 ? gamesIDs : gamesIDs.GetRange(0, 32);
+            //
+            //         timeout = 15;
+            //
+            //         bot.ArchiLogger.LogGenericInfo($"Status: Playing {filterIDs.Count} selected games: {filterIDs.ToJsonText()} | Next check: {DateTime.Now.AddMinutes(timeout):T}");
+            //     } else {
+            //         bot.ArchiLogger.LogGenericInfo($"Status: NotFoundGamesLess{tfc.Time}Hours");
+            //
+            //         return;
+            //     }
+            // } else {
+            //     bot.ArchiLogger.LogGenericInfo("Status: GameListIsEmpty");
+            //
+            //     return;
+            // }
+            bot.ArchiLogger.LogGenericInfo(games != null ? $"Total games found: {games.Count}" : $"Status: Error | Next run: {DateTime.Now.AddMinutes(timeout):T}");
 
-                    if (games.Count > 0) {
-                        List<uint> gamesIDs = [];
-
-                        TimeFarmConfig tfc = TimeFarmConfig[bot.BotName];
-
-                        if (tfc.Whitelist.Count > 0) {
-                            bot.ArchiLogger.LogGenericInfo($"Whitelist: {tfc.Whitelist.ToJsonText()}");
-                        }
-
-                        if (tfc.Blacklist.Count > 0) {
-                            bot.ArchiLogger.LogGenericInfo($"Blacklist: {tfc.Blacklist.ToJsonText()}");
-                        }
-
-                        foreach (GetOwnedGamesResponse.ResponseData.Game game in games) {
-                            if (tfc.Whitelist.Contains(game.AppId)) {
-                                gamesIDs.Add(game.AppId);
-                            }
-                        }
-
-                        foreach (GetOwnedGamesResponse.ResponseData.Game game in games) {
-                            if (!gamesIDs.Contains(game.AppId) && (game.PlayTimeForever < tfc.Time * 60) && !tfc.Blacklist.Contains(game.AppId)) {
-                                gamesIDs.Add(game.AppId);
-                            }
-                        }
-
-                        if (gamesIDs.Count > 0) {
-                            bot.ArchiLogger.LogGenericInfo($"Found games less {tfc.Time} hours: {gamesIDs.Count}");
-
-                            List<uint> filterIDs = gamesIDs.Count <= 32 ? gamesIDs : gamesIDs.GetRange(0, 32);
-
-                            timeout = 15;
-
-                            bot.ArchiLogger.LogGenericInfo($"Status: Playing {filterIDs.Count} selected games: {filterIDs.ToJsonText()} | Next check: {DateTime.Now.AddMinutes(timeout):T}");
-                        } else {
-                            bot.ArchiLogger.LogGenericInfo($"Status: NotFoundGamesLess{tfc.Time}Hours");
-
-                            return;
-                        }
-                    } else {
-                        bot.ArchiLogger.LogGenericInfo("Status: GameListIsEmpty");
-
-                        return;
-                    }
-                } else {
-                    bot.ArchiLogger.LogGenericInfo($"Status: Error | Next run: {DateTime.Now.AddMinutes(timeout):T}");
-                }
-            } else {
-                bot.ArchiLogger.LogGenericInfo("Status: BotNowFarming or PlayingNotPossible");
-
-                return;
-            }
+            // } else {
+            //     bot.ArchiLogger.LogGenericInfo("Status: BotNowFarming or PlayingNotPossible");
+            //
+            //     return;
+            // }
         } else {
             bot.ArchiLogger.LogGenericInfo($"Status: BotNotConnected | Next run: {DateTime.Now.AddMinutes(timeout):T}");
         }
