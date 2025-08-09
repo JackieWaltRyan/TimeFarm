@@ -139,14 +139,18 @@ internal sealed class TimeFarm : IGitHubPluginUpdates, IBotModules, IBotCardsFar
 
                             List<uint> filterIDs = gamesIDs.Count <= 32 ? gamesIDs : gamesIDs.GetRange(0, 32);
 
-                            (bool success, string message) = await bot.Actions.Play(filterIDs).ConfigureAwait(false);
+                            try {
+                                (bool success, string message) = await bot.Actions.Play(filterIDs).ConfigureAwait(false);
 
-                            if (success) {
-                                timeout = 15;
+                                if (success) {
+                                    timeout = 15;
 
-                                bot.ArchiLogger.LogGenericInfo($"Status: Playing {filterIDs.Count} selected games: {filterIDs.ToJsonText()} | Next check: {DateTime.Now.AddMinutes(timeout):T}");
-                            } else {
-                                bot.ArchiLogger.LogGenericInfo($"Status: Error | Message: {message} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+                                    bot.ArchiLogger.LogGenericInfo($"Status: Playing {filterIDs.Count} selected games: {filterIDs.ToJsonText()} | Next check: {DateTime.Now.AddMinutes(timeout):T}");
+                                } else {
+                                    bot.ArchiLogger.LogGenericInfo($"Status: Error | Message: {message} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
+                                }
+                            } catch (Exception e) {
+                                bot.ArchiLogger.LogGenericInfo($"Status: Error | Message: {e} | Next run: {DateTime.Now.AddMinutes(timeout):T}");
                             }
                         } else {
                             bot.ArchiLogger.LogGenericInfo($"Status: NotFoundGamesLess{tfc.Time}Hours");
